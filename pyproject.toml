@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bayesweb"
+version = "0.1.0"
+description = "Bayesian belief web with tipping-point detection for geo-prospective analysis"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "bayesweb contributors" }]
+keywords = ["bayesian", "belief", "prospective", "geoprospective", "network", "tipping-point"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "networkx>=3.1",
+    "matplotlib>=3.7",
+    "click>=8.1",
+    "pandas>=2.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "pytest-cov", "ruff", "mypy"]
+viz = ["plotly>=5.15", "pyvis>=0.3"]
+app = ["shiny>=1.0", "uvicorn>=0.30", "watchfiles>=0.21"]
+
+[project.scripts]
+bayesweb = "bayesweb.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bayesweb*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88

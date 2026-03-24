@@ -1,0 +1,60 @@
+{
+  "name": "MyBeliefWeb",
+  "nodes": [
+    {
+      "node_id": "A",
+      "label": "Urban sprawl reduces agricultural land",
+      "alpha": 3.0,
+      "beta": 1.0,
+      "zone": "N"
+    },
+    {
+      "node_id": "B",
+      "label": "Biodiversity declines in peri-urban areas",
+      "alpha": 2.0,
+      "beta": 2.0,
+      "zone": "I"
+    },
+    {
+      "node_id": "C",
+      "label": "Ecosystem services are monetised",
+      "alpha": 1.0,
+      "beta": 3.0,
+      "zone": "P"
+    },
+    {
+      "node_id": "D",
+      "label": "Policy instruments favour densification",
+      "alpha": 2.0,
+      "beta": 1.5,
+      "zone": "I"
+    }
+  ],
+  "edges": [
+    {
+      "source": "A",
+      "target": "B",
+      "weight": 0.75
+    },
+    {
+      "source": "A",
+      "target": "D",
+      "weight": -0.5
+    },
+    {
+      "source": "B",
+      "target": "C",
+      "weight": 0.6
+    },
+    {
+      "source": "D",
+      "target": "A",
+      "weight": -0.4
+    },
+    {
+      "source": "D",
+      "target": "C",
+      "weight": 0.3
+    }
+  ]
+}
