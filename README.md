@@ -5,7 +5,7 @@
 Dans ce dépôt, le **modèle de référence** est défini dans :
 
 ```text
-examples/basic\\\\\\\_example.py
+examples/basic\\\\\\\\\\\\\\\_example.py
 ```
 
 Ce même modèle peut ensuite être :
@@ -27,6 +27,18 @@ Il fournit l’arrière-plan conceptuel du modèle implémenté dans `bayesweb` 
 
 La version diffusée dans ce dépôt peut être révisée ultérieurement avant dépôt ou diffusion du préprint.
 
+
+
+\*\***Démo HTML5 en ligne** :\*\*  
+
+
+
+https://jcl256.github.io/Quine-bayesweb/Toy-model/
+
+
+
+Attention. ce modèle est à vocation pédagogique uniquement. Il ne reproduit pas la totalité des concepts décrits dans les fondements théoriques.
+
 \---
 
 ## Démarrage rapide
@@ -34,7 +46,7 @@ La version diffusée dans ce dépôt peut être révisée ultérieurement avant 
 ### 1\. Installer le package
 
 ```bash
-pip install -e .\\\\\\\[app]
+pip install -e .\\\\\\\\\\\\\\\[app]
 ```
 
 Si l’extra `app` n’est pas disponible dans votre version locale :
@@ -47,7 +59,7 @@ pip install shiny matplotlib networkx pandas
 ### 2\. Lancer le script d’exemple
 
 ```bash
-python examples/basic\\\\\\\_example.py
+python examples/basic\\\\\\\\\\\\\\\_example.py
 ```
 
 ### 3\. Lancer l’application Shiny
@@ -61,7 +73,7 @@ shiny run --reload --launch-browser app/app.py
 Éditez :
 
 ```text
-examples/basic\\\\\\\_example.py
+examples/basic\\\\\\\\\\\\\\\_example.py
 ```
 
 Puis, dans l’application Shiny, cliquez sur **Recharger le fichier**.
@@ -88,7 +100,7 @@ Il fournit le moteur de calcul :
 Le fichier :
 
 ```text
-examples/basic\\\\\\\_example.py
+examples/basic\\\\\\\\\\\\\\\_example.py
 ```
 
 sert de **point d’entrée principal** pour définir un réseau.
@@ -108,7 +120,7 @@ Le fichier :
 app/app.py
 ```
 
-charge automatiquement le modèle défini dans `examples/basic\\\\\\\_example.py` et construit :
+charge automatiquement le modèle défini dans `examples/basic\\\\\\\\\\\\\\\_example.py` et construit :
 
 * la liste des nœuds,
 * le choix du nœud cible,
@@ -122,11 +134,11 @@ charge automatiquement le modèle défini dans `examples/basic\\\\\\\_example.py
 
 Le dépôt est conçu pour suivre ce flux :
 
-1. **Définir ou modifier le réseau** dans `examples/basic\\\\\\\_example.py`
+1. **Définir ou modifier le réseau** dans `examples/basic\\\\\\\\\\\\\\\_example.py`
 2. **Tester le modèle** avec :
 
 ```bash
-   python examples/basic\\\\\\\_example.py
+   python examples/basic\\\\\\\\\\\\\\\_example.py
    ```
 
 3. **Ouvrir l’interface Shiny** avec :
@@ -140,20 +152,20 @@ Le dépôt est conçu pour suivre ce flux :
 
 Autrement dit :
 
-* `basic\\\\\\\_example.py` = définition du modèle
+* `basic\\\\\\\\\\\\\\\_example.py` = définition du modèle
 * `bayesweb` = moteur de calcul
 * `app.py` = interface d’exploration
 
 \---
 
-## Définir le réseau dans `basic\\\\\\\_example.py`
+## Définir le réseau dans `basic\\\\\\\\\\\\\\\_example.py`
 
-Le fichier `examples/basic\\\\\\\_example.py` est utilisé comme **source du modèle**.
+Le fichier `examples/basic\\\\\\\\\\\\\\\_example.py` est utilisé comme **source du modèle**.
 
 Il est recommandé d’y définir une fonction :
 
 ```python
-def build\\\\\\\_web():
+def build\\\\\\\\\\\\\\\_web():
     ...
     return web
 ```
@@ -174,7 +186,7 @@ utilisent exactement le **même modèle**.
 Le script d’exemple permet de tester directement le modèle sans passer par l’interface.
 
 ```bash
-python examples/basic\\\\\\\_example.py
+python examples/basic\\\\\\\\\\\\\\\_example.py
 ```
 
 Ce script peut afficher :
@@ -198,7 +210,7 @@ shiny run --reload --launch-browser app/app.py
 
 ### L’application permet de :
 
-* charger automatiquement `examples/basic\\\\\\\_example.py`,
+* charger automatiquement `examples/basic\\\\\\\\\\\\\\\_example.py`,
 * recharger le modèle après modification,
 * choisir le nœud cible,
 * régler `kappa`, `sigma` et `lambda`,
@@ -225,15 +237,15 @@ Selon sa valeur, le choc peut augmenter ou diminuer la probabilité du nœud cib
 `lambda` sert à calibrer `eta`, c’est-à-dire l’intensité globale de propagation dans le réseau.
 Plus `lambda` est élevé, plus la propagation potentielle peut être forte.
 
-### `p\\\\\\\_avant`
+### `p\\\\\\\\\\\\\\\_avant`
 
 Probabilité du nœud cible **avant le choc**.
 
-### `p\\\\\\\_après`
+### `p\\\\\\\\\\\\\\\_après`
 
 Probabilité du nœud cible **juste après le choc**, avant propagation dans l’ensemble du réseau.
 
-### `delta\\\\\\\_logit`
+### `delta\\\\\\\\\\\\\\\_logit`
 
 Mesure interne de l’intensité du changement appliqué au nœud cible.
 
@@ -253,7 +265,7 @@ Plus `F` est élevé, plus la propagation interne est marquée.
 * `G > 1` : amplification
 * `G < 1` : atténuation
 
-### `eta\\\\\\\_critique`
+### `eta\\\\\\\\\\\\\\\_critique`
 
 Seuil théorique de bascule.
 Plus il est bas, plus le système peut entrer facilement dans une dynamique forte.
@@ -274,7 +286,7 @@ Le graphe met en évidence :
 * le nœud cible,
 * les liens orientés et non orientés,
 * les influences négatives en pointillés,
-* la taille relative des nœuds selon l’effet observé (`delta\\\\\\\_p`).
+* la taille relative des nœuds selon l’effet observé (`delta\\\\\\\\\\\\\\\_p`).
 
 \---
 
@@ -285,14 +297,14 @@ bayesweb/
 ├── app/
 │   └── app.py
 ├── bayesweb/
-│   ├── \\\\\\\_\\\\\\\_init\\\\\\\_\\\\\\\_.py
+│   ├── \\\\\\\\\\\\\\\_\\\\\\\\\\\\\\\_init\\\\\\\\\\\\\\\_\\\\\\\\\\\\\\\_.py
 │   ├── cli.py
 │   └── ...
 ├── docs/
 │   └── theory/
 │       └── Théorie.pdf
 ├── examples/
-│   └── basic\\\\\\\_example.py
+│   └── basic\\\\\\\\\\\\\\\_example.py
 ├── tests/
 ├── README.md
 └── pyproject.toml
@@ -311,7 +323,7 @@ pip install -e .
 Ou avec les dépendances de l’application :
 
 ```bash
-pip install -e .\\\\\\\[app]
+pip install -e .\\\\\\\\\\\\\\\[app]
 ```
 
 \---
@@ -365,9 +377,9 @@ Ce dépôt est particulièrement adapté pour :
 
 ## Bonnes pratiques
 
-* utiliser `examples/basic\\\\\\\_example.py` comme **fichier de définition du modèle**
+* utiliser `examples/basic\\\\\\\\\\\\\\\_example.py` comme **fichier de définition du modèle**
 * éviter de dupliquer la définition du réseau ailleurs
-* privilégier une fonction `build\\\\\\\_web()`
+* privilégier une fonction `build\\\\\\\\\\\\\\\_web()`
 * tester d’abord en script Python
 * puis explorer visuellement dans Shiny
 
