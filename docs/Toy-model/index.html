@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Toile de croyances interactive (complexifiée)</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background:#fff; }
+    h2 { margin: 12px 0 0 0; }
+    .container { display: flex; flex-direction: row; justify-content: center; align-items: flex-start; margin: 10px; gap: 18px; }
+    #graph { width: 980px; height: 700px; border: 1px solid #ddd; background-color: #fafafa; border-radius: 10px; overflow:hidden; }
+    #sidePanel { width: 380px; }
+    button { margin: 6px 0; padding: 9px 12px; border-radius: 8px; cursor: pointer; display:block; width:100%; border:1px solid #ddd; background:#fff; }
+    button:hover { background:#f4f4f4; }
+    table { margin: 10px auto; border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #ccc; padding: 6px 8px; font-size: 12px; }
+    input[type=number] { width: 70px; }
+    .controls, .legend, .builder { margin: 12px 0; padding: 10px; border:1px solid #e6e6e6; border-radius: 10px; background:#fff; }
+    .legend div { margin: 4px 0; font-size: 13px; }
+    .row { display:flex; gap:8px; }
+    select, input[type=text] { width:100%; padding:8px; border-radius:8px; border:1px solid #ddd; }
+    .small { font-size: 12px; color:#444; line-height:1.35; }
+    .pill { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #ddd; background:#fff; font-size: 12px; margin-right:6px; }
+    .hint { color:#555; font-size:12px; margin-top:6px; }
+  </style>
+</head>
+
+<body>
+  <h2 style="text-align:center;">Toile de croyances : Protection vs Mise en tourisme (version complexifiée)</h2>
+
+  <div class="container">
+    <!-- Graphe -->
+    <div id="graph"></div>
+
+    <!-- Panneau latéral -->
+    <div id="sidePanel">
+
+      <div class="builder">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="margin:0;">Ajouter par thématique</h3>
+          <span class="pill" id="countsPill">nœuds: 0 • liens: 0</span>
+        </div>
+        <hr style="border:none; border-top:1px solid #eee; margin:12px 0;">
+
+        <h3 style="margin:0 0 8px 0;">Profil d’agent (priors & perception des scénarios)</h3>
+        <div class="row">
+          <select id="agentProfile" onchange="onProfileChange(this.value)">
+            <option value="resident">Résident·e</option>
+            <option value="elu">Élu·e local·e</option>
+            <option value="operateur">Opérateur touristique</option>
+            <option value="ong">ONG / protection</option>
+          </select>
+        </div>
+        <div class="hint">
+          Le profil modifie les <b>priors</b> (croyances initiales) et l’<b>interprétation</b> des scénarios
+          (évidence favorable vs contradictoire).
+        </div>
+
+
+        <div class="row" style="margin-top:10px;">
+          <select id="themeSelect">
+            <option value="tourisme">Pack Tourisme</option>
+            <option value="protection">Pack Protection</option>
+            <option value="mobilite">Pack Mobilité</option>
+            <option value="gouvernance">Pack Gouvernance</option>
+            <option value="economie">Pack Économie & emploi</option>
+          </select>
+          <button style="width:160px;" onclick="addThemePack()">Ajouter</button>
+        </div>
+
+        <div class="hint">
+          Astuce : tu peux ajouter plusieurs packs; les doublons sont ignorés (même nom de nœud).
+        </div>
+
+        <hr style="border:none; border-top:1px solid #eee; margin:12px 0;">
+
+        <h3 style="margin:0 0 8px 0;">Ajouter un nœud (rapide)</h3>
+        <div class="row">
+          <input id="newNodeName" type="text" placeholder="Nom du nœud (ex: 'Surfréquentation')" />
+          <select id="newNodeLayer" style="width:170px;">
+            <option value="peri">Périphérie (bleu)</option>
+            <option value="inter">Intermédiaire (vert)</option>
+            <option value="noyau">Noyau (rouge)</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <select id="newNodeAutoLinkTo">
+            <option value="">Relier automatiquement à… (optionnel)</option>
+          </select>
+          <button style="width:160px;" onclick="addSingleNode()">Ajouter nœud</button>
+        </div>
+        <div class="small">
+          Le lien auto sera créé avec un poids “raisonnable” (+0.35 ou -0.35 selon le type d’ancrage).
+        </div>
+      </div>
+
+      <div>
+        <button onclick="simulate('quotas')">Renforcement quotas</button>
+        <button onclick="simulate('navettes')">Navettes électriques</button>
+        <button onclick="simulate('privatisation')">Privatisation / tarification forte</button>
+        <button onclick="simulate('campagne')">Campagne de sensibilisation</button>
+        <button onclick="simulate('infrastructures')">Développement infrastructures</button>
+        <button onclick="resetWeights()">Réinitialiser</button>
+      </div>
+
+      <div class="controls">
+        <h3 style="margin-top:0;">Contrôles dynamiques</h3>
+        <label>Force radiale :
+          <input type="range" id="radialSlider" min="0.1" max="1.8" step="0.05" value="1.05"
+                 oninput="updateRadialStrength(this.value)">
+          <span id="radialVal">1.05</span>
+        </label><br><br>
+        <label>Taux de diffusion :
+          <input type="range" id="diffusionSlider" min="0.05" max="1.0" step="0.05" value="0.50"
+                 oninput="updateDiffusionRate(this.value)">
+          <span id="diffusionVal">0.50</span>
+        </label><br><br>
+        <label>Afficher les étiquettes :
+          <input type="checkbox" id="labelsToggle" checked onchange="toggleLabels(this.checked)">
+        </label><br>
+        <label>Épaisseur max liens :
+          <input type="range" id="strokeSlider" min="8" max="40" step="1" value="26"
+                 oninput="updateStrokeMax(this.value)">
+          <span id="strokeVal">26</span>
+        </label>
+      </div>
+
+      <div class="legend">
+        <h3 style="margin-top:0;">Légende</h3>
+        <div><span style="color:#ff6666;">●</span> Noyau dur (valeurs identitaires)</div>
+        <div><span style="color:#66cc66;">●</span> Anneau vert (socio-économie, justice)</div>
+        <div><span style="color:#66b2ff;">●</span> Anneau bleu (périphérie technique)</div>
+        <div><span style="border-bottom:3px solid #222;">━━</span> Lien de cohérence (positif)</div>
+        <div><span style="border-bottom:3px solid #c62828;">━━</span> Lien de conflit (négatif)</div>
+        <div class="small" style="margin-top:8px;">
+          Les conflits ont été densifiés : régulation ↔ profits, accès ↔ privatisation, biodiversité ↔ infrastructures, etc.
+        </div>
+      </div>
+
+      <h3>Modifier les poids (0 → 1)</h3>
+      <table id="weightsTable"></table>
+    </div>
+  </div>
+
+<script>
+/* =========================================================
+   Données (base + densification des conflits)
+   ========================================================= */
+
+const width = 980, height = 700;
+
+const initialNodes = [
+  // Noyau
+  {id:"Montagne = héritage", layer:"noyau", weight:0.95},
+  {id:"Nature = bien commun", layer:"noyau", weight:0.92},
+  {id:"Identité locale", layer:"noyau", weight:0.90},
+
+  // Intermédiaire
+  {id:"Tourisme fait vivre la vallée", layer:"inter", weight:0.72},
+  {id:"Justice d’accès", layer:"inter", weight:0.68},
+  {id:"Qualité de vie des résidents", layer:"inter", weight:0.70},
+  {id:"Biodiversité", layer:"inter", weight:0.76},
+  {id:"Acceptabilité sociale", layer:"inter", weight:0.62},
+
+  // Périphérie
+  {id:"Quotas randonneurs", layer:"peri", weight:0.35},
+  {id:"Navettes électriques", layer:"peri", weight:0.42},
+  {id:"Parkings / accès voiture", layer:"peri", weight:0.50},
+  {id:"Infrastructures touristiques", layer:"peri", weight:0.55},
+  {id:"Tarification / péage", layer:"peri", weight:0.30},
+  {id:"Campagnes de sensibilisation", layer:"peri", weight:0.36},
+  {id:"Surveillance / monitoring", layer:"peri", weight:0.33},
+  {id:"Surfréquentation", layer:"peri", weight:0.58},
+  {id:"Pollution / bruit", layer:"peri", weight:0.52}
+];
+
+// Liens : on densifie les conflits (négatifs) + cohérences (positifs)
+const initialLinks = [
+  // cohérences (positifs)
+  {source:"Montagne = héritage", target:"Identité locale", weight:0.75},
+  {source:"Nature = bien commun", target:"Biodiversité", weight:0.80},
+  {source:"Identité locale", target:"Qualité de vie des résidents", weight:0.55},
+  {source:"Tourisme fait vivre la vallée", target:"Acceptabilité sociale", weight:0.25},
+  {source:"Qualité de vie des résidents", target:"Acceptabilité sociale", weight:0.55},
+  {source:"Navettes électriques", target:"Pollution / bruit", weight:-0.55}, // navettes réduisent => conflit avec pollution (négatif = diminution de pollution si navettes ↑)
+  {source:"Campagnes de sensibilisation", target:"Biodiversité", weight:0.35},
+  {source:"Surveillance / monitoring", target:"Quotas randonneurs", weight:0.40},
+  {source:"Surveillance / monitoring", target:"Acceptabilité sociale", weight:-0.25}, // contrôle peut dégrader l'acceptabilité
+  {source:"Navettes électriques", target:"Justice d’accès", weight:0.30},
+  {source:"Quotas randonneurs", target:"Biodiversité", weight:0.45},
+  {source:"Quotas randonneurs", target:"Surfréquentation", weight:-0.60}, // quotas réduisent surfréquentation
+
+  // conflits (négatifs) — densifiés
+  {source:"Tourisme fait vivre la vallée", target:"Quotas randonneurs", weight:-0.35},
+  {source:"Tourisme fait vivre la vallée", target:"Biodiversité", weight:-0.30},
+  {source:"Infrastructures touristiques", target:"Biodiversité", weight:-0.70},
+  {source:"Infrastructures touristiques", target:"Nature = bien commun", weight:-0.55},
+  {source:"Infrastructures touristiques", target:"Montagne = héritage", weight:-0.45},
+  {source:"Infrastructures touristiques", target:"Surfréquentation", weight:0.55}, // plus d'infra → plus d'afflux
+  {source:"Surfréquentation", target:"Qualité de vie des résidents", weight:-0.75},
+  {source:"Surfréquentation", target:"Biodiversité", weight:-0.70},
+  {source:"Surfréquentation", target:"Acceptabilité sociale", weight:-0.55},
+  {source:"Parkings / accès voiture", target:"Pollution / bruit", weight:0.70},
+  {source:"Pollution / bruit", target:"Qualité de vie des résidents", weight:-0.65},
+  {source:"Pollution / bruit", target:"Biodiversité", weight:-0.40},
+  {source:"Parkings / accès voiture", target:"Justice d’accès", weight:0.20}, // certains voient l'accès voiture comme "accès"
+  {source:"Tarification / péage", target:"Justice d’accès", weight:-0.75},
+  {source:"Tarification / péage", target:"Acceptabilité sociale", weight:-0.55},
+  {source:"Tarification / péage", target:"Surfréquentation", weight:-0.35}, // péage peut réduire afflux
+  {source:"Quotas randonneurs", target:"Justice d’accès", weight:-0.65},
+  {source:"Quotas randonneurs", target:"Acceptabilité sociale", weight:-0.25},
+  {source:"Montagne = héritage", target:"Infrastructures touristiques", weight:-0.40},
+  {source:"Identité locale", target:"Infrastructures touristiques", weight:-0.35},
+  {source:"Nature = bien commun", target:"Tarification / péage", weight:-0.35},
+
+  // liens de cohérence supplémentaires
+  {source:"Tourisme fait vivre la vallée", target:"Infrastructures touristiques", weight:0.60},
+  {source:"Tourisme fait vivre la vallée", target:"Parkings / accès voiture", weight:0.35},
+  {source:"Navettes électriques", target:"Parkings / accès voiture", weight:-0.35},
+  {source:"Campagnes de sensibilisation", target:"Surfréquentation", weight:-0.20},
+  {source:"Nature = bien commun", target:"Campagnes de sensibilisation", weight:0.40},
+  {source:"Montagne = héritage", target:"Acceptabilité sociale", weight:0.20},
+];
+
+/* =========================================================
+   Bayésianisme subjectif (Beta) + profils d’agents
+   ========================================================= */
+
+// Force (α+β) par couche : plus élevé = croyance plus "rigide"
+const layerBaseStrength = { noyau: 40, inter: 18, peri: 10 };
+
+// Résistance (sensibilité aux évidences) par couche : plus petit = moins sensible
+const layerResistance = { noyau: 0.35, inter: 0.80, peri: 1.00 };
+
+// Profils : (1) ajustements de priors (moyennes) (2) perception des scénarios (support)
+const agentProfiles = {
+  resident: {
+    label: "Résident·e",
+    priorOverrides: {
+      "Justice d’accès": 0.78,
+      "Qualité de vie des résidents": 0.80,
+      "Tarification / péage": 0.18,
+      "Infrastructures touristiques": 0.45
+    },
+    scenarioSupport: {
+      quotas: 0.72,
+      navettes: 0.88,
+      privatisation: 0.22,
+      campagne: 0.70,
+      infrastructures: 0.45
+    }
+  },
+  elu: {
+    label: "Élu·e local·e",
+    priorOverrides: {
+      "Acceptabilité sociale": 0.72,
+      "Tourisme fait vivre la vallée": 0.78,
+      "Tarification / péage": 0.40
+    },
+    scenarioSupport: {
+      quotas: 0.62,
+      navettes: 0.80,
+      privatisation: 0.55,
+      campagne: 0.72,
+      infrastructures: 0.65
+    }
+  },
+  operateur: {
+    label: "Opérateur touristique",
+    priorOverrides: {
+      "Tourisme fait vivre la vallée": 0.86,
+      "Infrastructures touristiques": 0.72,
+      "Quotas randonneurs": 0.22,
+      "Tarification / péage": 0.48
+    },
+    scenarioSupport: {
+      quotas: 0.30,
+      navettes: 0.78,
+      privatisation: 0.70,
+      campagne: 0.60,
+      infrastructures: 0.82
+    }
+  },
+  ong: {
+    label: "ONG / protection",
+    priorOverrides: {
+      "Nature = bien commun": 0.96,
+      "Biodiversité": 0.90,
+      "Infrastructures touristiques": 0.35,
+      "Tarification / péage": 0.22,
+      "Quotas randonneurs": 0.55
+    },
+    scenarioSupport: {
+      quotas: 0.78,
+      navettes: 0.85,
+      privatisation: 0.18,
+      campagne: 0.78,
+      infrastructures: 0.28
+    }
+  }
+};
+
+function clamp01(x){ return Math.max(0.01, Math.min(0.99, x)); }
+
+function initBetaFromMean(mean, strength){
+  const m = clamp01(mean);
+  const s = Math.max(2, strength);
+  return { alpha: m*s, beta: (1-m)*s };
+}
+function meanFromBeta(n){
+  const denom = (n.alpha + n.beta);
+  return denom > 0 ? (n.alpha / denom) : clamp01(n.weight ?? 0.5);
+}
+function setMeanKeepStrength(n, mean){
+  const s = (n.alpha && n.beta) ? (n.alpha + n.beta) : (layerBaseStrength[n.layer] || 10);
+  const m = clamp01(mean);
+  n.alpha = m*s;
+  n.beta  = (1-m)*s;
+  n.weight = m;
+}
+function bayesUpdateBeta(n, evidenceStrength, evidenceSupport){
+  const k = Math.max(0, evidenceStrength);
+  const s = clamp01(evidenceSupport);
+  n.alpha = (n.alpha ?? 1) + k*s;
+  n.beta  = (n.beta  ?? 1) + k*(1-s);
+  n.weight = meanFromBeta(n);
+}
+
+// Log-odds helpers (propagation d’évidence de type “log-vraisemblance”)
+function logit(p){ const x = clamp01(p); return Math.log(x/(1-x)); }
+function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+
+// Construit l’état initial (priors) pour un profil donné
+function buildProfileNodes(profileId){
+  const profile = agentProfiles[profileId] || agentProfiles.resident;
+  return JSON.parse(JSON.stringify(initialNodes)).map(n => {
+    const baseMean = (profile.priorOverrides && profile.priorOverrides[n.id] !== undefined)
+      ? profile.priorOverrides[n.id]
+      : n.weight;
+    const strength = layerBaseStrength[n.layer] || 10;
+    const b = initBetaFromMean(baseMean, strength);
+    return { ...n, ...b, weight: clamp01(baseMean) };
+  });
+}
+
+// Applique un profil aux nœuds EXISTANTS (utile si des packs/nœuds ont été ajoutés)
+function applyProfileToExistingNodes(profileId){
+  const profile = agentProfiles[profileId] || agentProfiles.resident;
+  nodes.forEach(n => {
+    const mean = (profile.priorOverrides && profile.priorOverrides[n.id] !== undefined)
+      ? profile.priorOverrides[n.id]
+      : (n.weight ?? 0.5);
+    const strength = layerBaseStrength[n.layer] || 10;
+    const b = initBetaFromMean(mean, strength);
+    n.alpha = b.alpha; n.beta = b.beta; n.weight = clamp01(mean);
+  });
+}
+
+function onProfileChange(profileId){
+  activeProfile = profileId;
+  // Met à jour les priors des nœuds présents (y compris ceux ajoutés)
+  applyProfileToExistingNodes(activeProfile);
+  updateGraph(450);
+}
+
+
+
+/* =========================================================
+   Packs thématiques (ajoutables)
+   ========================================================= */
+const themePacks = {
+  tourisme: {
+    nodes: [
+      {id:"Marketing territorial", layer:"peri", weight:0.35},
+      {id:"Expérience visiteur", layer:"inter", weight:0.55},
+      {id:"Économie d’enneigement", layer:"peri", weight:0.25}
+    ],
+    links: [
+      {source:"Marketing territorial", target:"Surfréquentation", weight:0.35},
+      {source:"Marketing territorial", target:"Tourisme fait vivre la vallée", weight:0.45},
+      {source:"Expérience visiteur", target:"Acceptabilité sociale", weight:0.20},
+      {source:"Expérience visiteur", target:"Quotas randonneurs", weight:-0.25},
+      {source:"Économie d’enneigement", target:"Infrastructures touristiques", weight:0.30},
+      {source:"Économie d’enneigement", target:"Biodiversité", weight:-0.25}
+    ]
+  },
+  protection: {
+    nodes: [
+      {id:"Zones protégées", layer:"peri", weight:0.30},
+      {id:"Restauration habitats", layer:"peri", weight:0.28},
+      {id:"Principe de précaution", layer:"inter", weight:0.60}
+    ],
+    links: [
+      {source:"Zones protégées", target:"Biodiversité", weight:0.55},
+      {source:"Zones protégées", target:"Justice d’accès", weight:-0.30},
+      {source:"Restauration habitats", target:"Biodiversité", weight:0.60},
+      {source:"Principe de précaution", target:"Infrastructures touristiques", weight:-0.55},
+      {source:"Principe de précaution", target:"Montagne = héritage", weight:0.35},
+      {source:"Principe de précaution", target:"Nature = bien commun", weight:0.45}
+    ]
+  },
+  mobilite: {
+    nodes: [
+      {id:"Mobilité douce", layer:"peri", weight:0.32},
+      {id:"P+R en vallée", layer:"peri", weight:0.33},
+      {id:"Capacité transport", layer:"peri", weight:0.40}
+    ],
+    links: [
+      {source:"Mobilité douce", target:"Pollution / bruit", weight:-0.45},
+      {source:"P+R en vallée", target:"Parkings / accès voiture", weight:-0.30},
+      {source:"P+R en vallée", target:"Navettes électriques", weight:0.40},
+      {source:"Capacité transport", target:"Surfréquentation", weight:0.35},
+      {source:"Capacité transport", target:"Tourisme fait vivre la vallée", weight:0.30}
+    ]
+  },
+  gouvernance: {
+    nodes: [
+      {id:"Gouvernance participative", layer:"inter", weight:0.50},
+      {id:"Régulation / contrôle", layer:"peri", weight:0.35},
+      {id:"Confiance institutions", layer:"inter", weight:0.45}
+    ],
+    links: [
+      {source:"Gouvernance participative", target:"Acceptabilité sociale", weight:0.55},
+      {source:"Gouvernance participative", target:"Justice d’accès", weight:0.35},
+      {source:"Régulation / contrôle", target:"Surfréquentation", weight:-0.35},
+      {source:"Régulation / contrôle", target:"Acceptabilité sociale", weight:-0.25},
+      {source:"Confiance institutions", target:"Acceptabilité sociale", weight:0.35},
+      {source:"Confiance institutions", target:"Tarification / péage", weight:-0.20}
+    ]
+  },
+  economie: {
+    nodes: [
+      {id:"Emplois saisonniers", layer:"inter", weight:0.50},
+      {id:"Revenus locaux", layer:"inter", weight:0.55},
+      {id:"Coûts publics (infrastructures)", layer:"inter", weight:0.45}
+    ],
+    links: [
+      {source:"Revenus locaux", target:"Tourisme fait vivre la vallée", weight:0.55},
+      {source:"Emplois saisonniers", target:"Acceptabilité sociale", weight:0.15},
+      {source:"Coûts publics (infrastructures)", target:"Infrastructures touristiques", weight:0.45},
+      {source:"Coûts publics (infrastructures)", target:"Acceptabilité sociale", weight:-0.20},
+      {source:"Coûts publics (infrastructures)", target:"Justice d’accès", weight:-0.10}
+    ]
+  }
+};
+
+/* =========================================================
+   Etat & paramètres
+   ========================================================= */
+let activeProfile = "resident";
+let nodes = buildProfileNodes(activeProfile);
+let links = JSON.parse(JSON.stringify(initialLinks));
+
+let diffusionRate = 0.50;
+let radialStrength = 1.05;
+let strokeMax = 26;
+let labelsVisible = true;
+
+/* =========================================================
+   SVG + fond Quine (anneaux)
+   ========================================================= */
+const svg = d3.select("#graph").append("svg")
+  .attr("width", width).attr("height", height);
+
+
+// --- Glow filter for confidence halo ---
+const defs = svg.append("defs");
+const glowFilter = defs.append("filter")
+  .attr("id","confidenceGlow")
+  .attr("x","-80%").attr("y","-80%")
+  .attr("width","260%").attr("height","260%");
+glowFilter.append("feGaussianBlur")
+  .attr("in","SourceGraphic")
+  .attr("stdDeviation", 8)
+  .attr("result","blur");
+const feMerge = glowFilter.append("feMerge");
+feMerge.append("feMergeNode").attr("in","blur");
+feMerge.append("feMergeNode").attr("in","SourceGraphic");
+
+const bg = svg.append("g");
+
+// Zones de fond (anneaux)
+bg.append("circle").attr("cx", width/2).attr("cy", height/2).attr("r", 105).attr("fill", "#ff9999");
+bg.append("circle").attr("cx", width/2).attr("cy", height/2).attr("r", 210).attr("fill", "#99e699");
+bg.append("circle").attr("cx", width/2).attr("cy", height/2).attr("r", 315).attr("fill", "#99ccff");
+
+// Traits d'anneaux
+bg.append("circle").attr("cx", width/2).attr("cy", height/2).attr("r", 105).attr("fill","none").attr("stroke","#fff").attr("stroke-width",2).attr("opacity",0.7);
+bg.append("circle").attr("cx", width/2).attr("cy", height/2).attr("r", 210).attr("fill","none").attr("stroke","#fff").attr("stroke-width",2).attr("opacity",0.7);
+bg.append("circle").attr("cx", width/2).attr("cy", height/2).attr("r", 315).attr("fill","none").attr("stroke","#fff").attr("stroke-width",2).attr("opacity",0.7);
+
+const gLinks = svg.append("g");
+const gNodes = svg.append("g");
+const gLabels = svg.append("g");
+
+/* =========================================================
+   Forces
+   ========================================================= */
+function radialDistance(d){
+  if(d.layer === "noyau") return 95;
+  if(d.layer === "inter") return 185;
+  return 265;
+}
+
+function linkDistanceByWeight(d){
+  return 70 + 150*(1 - Math.abs(d.weight));
+}
+
+function applyRadialForce(strengthValue=radialStrength){
+  simulation.force("radial", d3.forceRadial(d => radialDistance(d), width/2, height/2).strength(strengthValue));
+}
+
+let simulation = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(links).id(d => d.id).distance(linkDistanceByWeight).strength(0.62))
+  .force("charge", d3.forceManyBody().strength(-320))
+  .force("collide", d3.forceCollide(d => Math.max(18, 40*d.weight)).iterations(2))
+  .force("center", d3.forceCenter(width/2, height/2));
+
+applyRadialForce(radialStrength);
+
+/* =========================================================
+   Rendu (update pattern)
+   ========================================================= */
+let linkSel = gLinks.selectAll("line");
+let nodeSel = gNodes.selectAll("circle.node");
+let labelSel = gLabels.selectAll("text.node-label");
+
+function linkStrokeWidth(d){
+  return Math.max(1, Math.abs(d.weight) * strokeMax);
+}
+function linkStrokeColor(d){
+  // poids positif => cohérence ; négatif => conflit
+  return d.weight > 0 ? "#222" : "#c62828";
+}
+function nodeFill(d){
+  return d.layer==="noyau" ? "#ff6666" : (d.layer==="inter" ? "#66cc66" : "#66b2ff");
+}
+function nodeRadius(d){
+  return Math.max(10, 46 * d.weight);
+}
+
+function updateGraph(ms=500){
+  // LINKS
+  linkSel = linkSel.data(links, d => (d.source.id || d.source) + "→" + (d.target.id || d.target));
+  linkSel.exit().transition().duration(ms).style("opacity",0).remove();
+
+  const linkEnter = linkSel.enter().append("line")
+    .attr("stroke", linkStrokeColor)
+    .attr("stroke-width", linkStrokeWidth)
+    .style("opacity", 0.9);
+
+  linkSel = linkEnter.merge(linkSel);
+
+  linkSel.transition().duration(ms)
+    .attr("stroke", linkStrokeColor)
+    .attr("stroke-width", linkStrokeWidth);
+
+  
+  // Confidence halo (alpha+beta): compute scale on current nodes
+  const confExtent = d3.extent(nodes, d => (d.alpha ?? 1) + (d.beta ?? 1));
+  const confScale = d3.scaleLinear().domain(confExtent).range([0.15, 0.85]); // opacity
+  const confRScale = d3.scaleLinear().domain(confExtent).range([8, 26]);     // radius add
+
+  // HALO circles (behind nodes)
+  glowSel = gNodes.selectAll("circle.halo").data(nodes, d => d.id);
+  glowSel.exit().transition().duration(ms).style("opacity",0).remove();
+
+  const glowEnter = glowSel.enter().append("circle")
+    .attr("class","halo")
+    .attr("r", d => nodeRadius(d) + confRScale((d.alpha ?? 1)+(d.beta ?? 1)))
+    .attr("fill", d => d3.interpolateReds(confScale((d.alpha ?? 1)+(d.beta ?? 1))))
+    .style("opacity", d => confScale((d.alpha ?? 1)+(d.beta ?? 1)))
+    .style("filter","url(#confidenceGlow)")
+    .style("pointer-events","none");
+
+  glowSel = glowEnter.merge(glowSel);
+
+  // Update halo appearance when confidence changes
+  glowSel.transition().duration(ms)
+    .attr("r", d => nodeRadius(d) + confRScale((d.alpha ?? 1)+(d.beta ?? 1)))
+    .attr("fill", d => d3.interpolateReds(confScale((d.alpha ?? 1)+(d.beta ?? 1))))
+    .style("opacity", d => confScale((d.alpha ?? 1)+(d.beta ?? 1)));
+
+// NODES
+  nodeSel = nodeSel.data(nodes, d => d.id);
+  nodeSel.exit().transition().duration(ms).style("opacity",0).remove();
+
+  const nodeEnter = nodeSel.enter().append("circle")
+    .attr("class","node")
+    .attr("r", d => nodeRadius(d))
+    .attr("fill", d => nodeFill(d))
+    .attr("stroke","#111")
+    .attr("stroke-width",1.5)
+    .style("cursor","grab")
+    .call(drag(simulation));
+
+  // tooltip léger
+  nodeEnter.append("title").text(d => `${d.id}\nPoids: ${d.weight.toFixed(2)}\nCouche: ${d.layer}`);
+
+  nodeSel = nodeEnter.merge(nodeSel);
+  nodeSel.transition().duration(ms)
+    .attr("r", d => nodeRadius(d))
+    .attr("fill", d => nodeFill(d))
+    .attr("stroke","#111")
+    .attr("stroke-width",1.5);
+
+  // LABELS
+  labelSel = labelSel.data(nodes, d => d.id);
+  labelSel.exit().transition().duration(ms).style("opacity",0).remove();
+
+  const labelEnter = labelSel.enter().append("text")
+    .attr("class","node-label")
+    .text(d => d.id)
+    .attr("font-size","11px")
+    .attr("pointer-events","none")
+    .style("opacity", labelsVisible ? 1 : 0);
+
+  labelSel = labelEnter.merge(labelSel);
+  labelSel.transition().duration(ms).style("opacity", labelsVisible ? 1 : 0);
+
+  // Met à jour forces dépendantes
+  simulation.nodes(nodes);
+  simulation.force("link").links(links).distance(linkDistanceByWeight);
+  applyRadialForce(radialStrength);
+
+  simulation.alpha(0.85).restart();
+
+  updateTable();
+  rebuildAutoLinkDropdown();
+  updateCounts();
+}
+
+simulation.on("tick", () => {
+  linkSel
+    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+
+  nodeSel.attr("cx", d => d.x).attr("cy", d => d.y);
+
+  glowSel && glowSel.attr("cx", d => d.x).attr("cy", d => d.y);
+
+  labelSel.attr("x", d => d.x + 8).attr("y", d => d.y + 4);
+});
+
+/* =========================================================
+   Diffusion & résistance
+   ========================================================= */
+function adjustWeight(nodeObj, delta){
+  // Conservé pour compatibilité (anciens appels) : on ajuste la moyenne p,
+  // en gardant la “confiance” (α+β) constante.
+  const resistance = (nodeObj.layer === "noyau") ? 0.12 : (nodeObj.layer === "inter" ? 0.65 : 1.0);
+  const pNew = clamp01((nodeObj.weight ?? 0.5) + delta * resistance);
+  setMeanKeepStrength(nodeObj, pNew);
+}
+
+function diffuseChanges(changedNode, delta){
+  // diffusion bidirectionnelle (réseau dense)
+  links.forEach(l => {
+    const s = (typeof l.source === "string") ? nodes.find(n => n.id === l.source) : l.source;
+    const t = (typeof l.target === "string") ? nodes.find(n => n.id === l.target) : l.target;
+    if(!s || !t) return;
+
+    if(s.id === changedNode.id){
+      adjustWeight(t, delta * l.weight * diffusionRate);
+    } else if(t.id === changedNode.id){
+      adjustWeight(s, delta * l.weight * diffusionRate);
+    }
+  });
+}
+
+function diffuseBayes(changedNode, k, s){
+  // Propagation en log-odds : une évidence s>0.5 (ou <0.5) se propage via les liens signés.
+  // deltaL approx : force * direction (centrée sur 0.5)
+  const deltaL = (s - 0.5) * k;
+
+  links.forEach(l => {
+    const a = (typeof l.source === "string") ? nodes.find(n => n.id === l.source) : l.source;
+    const b = (typeof l.target === "string") ? nodes.find(n => n.id === l.target) : l.target;
+    if(!a || !b) return;
+
+    let neighbor=null, w=0;
+    if(a.id === changedNode.id){ neighbor = b; w = l.weight; }
+    else if(b.id === changedNode.id){ neighbor = a; w = l.weight; }
+    else return;
+
+    const resist = layerResistance[neighbor.layer] ?? 1.0;
+    const l0 = logit(neighbor.weight ?? meanFromBeta(neighbor));
+    const l1 = l0 + (diffusionRate * w * deltaL * resist);
+    const p1 = sigmoid(l1);
+
+    // Micro-mise à jour Beta (faible) pour conserver une dynamique stable
+    bayesUpdateBeta(neighbor, 2.2, p1);
+  });
+}
+
+
+/* =========================================================
+   Scénarios (boutons)
+   ========================================================= */
+function simulate(type){
+  // Scénario = “évidence” (force k) + “support” s∈[0,1] dépendant du profil
+  const profile = agentProfiles[activeProfile] || agentProfiles.resident;
+
+  let target=null;
+  let k=0;
+  // support: 0.5 neutre; >0.5 soutient; <0.5 contredit
+  let s = (profile.scenarioSupport && profile.scenarioSupport[type] !== undefined)
+    ? profile.scenarioSupport[type]
+    : 0.70;
+
+  if(type==='quotas'){ target = nodes.find(n=>n.id==="Quotas randonneurs"); k=9; }
+  if(type==='navettes'){ target = nodes.find(n=>n.id==="Navettes électriques"); k=10; }
+  if(type==='privatisation'){ target = nodes.find(n=>n.id==="Tarification / péage"); k=10; }
+  if(type==='campagne'){ target = nodes.find(n=>n.id==="Campagnes de sensibilisation"); k=8; }
+  if(type==='infrastructures'){ target = nodes.find(n=>n.id==="Infrastructures touristiques"); k=9; }
+
+  if(!target) return;
+
+  // Mise à jour bayésienne locale (Beta)
+  const resist = layerResistance[target.layer] ?? 1.0;
+  bayesUpdateBeta(target, k*resist, s);
+
+  // Propagation “log-odds” vers les voisins (évidence compatible avec Bayes)
+  diffuseBayes(target, k, s);
+
+  updateGraph(650);
+}
+
+function resetWeights(){
+  nodes = buildProfileNodes(activeProfile);
+  links = JSON.parse(JSON.stringify(initialLinks));
+
+  // Recrée simulation avec références propres
+  simulation.stop();
+  simulation = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).id(d => d.id).distance(linkDistanceByWeight).strength(0.62))
+    .force("charge", d3.forceManyBody().strength(-320))
+    .force("collide", d3.forceCollide(d => Math.max(18, 40*d.weight)).iterations(2))
+    .force("center", d3.forceCenter(width/2, height/2));
+  applyRadialForce(radialStrength);
+
+  simulation.on("tick", () => {
+    linkSel
+      .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+    nodeSel.attr("cx", d => d.x).attr("cy", d => d.y);
+    labelSel.attr("x", d => d.x + 8).attr("y", d => d.y + 4);
+  });
+
+  updateGraph(350);
+}
+
+/* =========================================================
+   Table (édition des poids)
+   ========================================================= */
+function buildTable(){
+  const table=document.getElementById("weightsTable");
+  table.innerHTML="<tr><th>Croyance</th><th>Couche</th><th>p</th><th>Confiance (α+β)</th><th>Modifier p</th></tr>";
+  nodes.forEach((n,i)=>{
+    const row=document.createElement("tr");
+    const conf = (n.alpha && n.beta) ? (n.alpha + n.beta) : (layerBaseStrength[n.layer] || 10);
+    row.innerHTML=`
+      <td style="text-align:left">${escapeHtml(n.id)}</td>
+      <td>${n.layer}</td>
+      <td id="val-${i}">${(n.weight ?? 0).toFixed(2)}</td>
+      <td>${conf.toFixed(1)}</td>
+      <td>
+        <input type="number" min="0" max="1" step="0.01" value="${(n.weight ?? 0).toFixed(2)}"
+          onchange="setWeight(${i}, this.value)">
+      </td>`;
+    table.appendChild(row);
+  });
+}
+function setWeight(index,val){
+  const v=clamp01(parseFloat(val));
+  // Mise à jour manuelle = remplacement de la moyenne, en gardant la confiance
+  setMeanKeepStrength(nodes[index], v);
+  updateGraph(350);
+}
+function updateTable(){ buildTable(); }
+
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, s => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[s]));
+}
+
+/* =========================================================
+   UI controls
+   ========================================================= */
+function updateRadialStrength(val){
+  radialStrength = parseFloat(val);
+  document.getElementById("radialVal").textContent=radialStrength.toFixed(2);
+  updateGraph(250);
+}
+function updateDiffusionRate(val){
+  diffusionRate = parseFloat(val);
+  document.getElementById("diffusionVal").textContent=diffusionRate.toFixed(2);
+}
+function toggleLabels(on){
+  labelsVisible = !!on;
+  updateGraph(250);
+}
+function updateStrokeMax(val){
+  strokeMax = parseFloat(val);
+  document.getElementById("strokeVal").textContent = strokeMax.toFixed(0);
+  updateGraph(200);
+}
+function updateCounts(){
+  document.getElementById("countsPill").textContent = `nœuds: ${nodes.length} • liens: ${links.length}`;
+}
+
+/* =========================================================
+   Ajout thématique / ajout d'un nœud
+   ========================================================= */
+function nodeExists(id){
+  return nodes.some(n => n.id === id);
+}
+function linkExists(s, t){
+  return links.some(l => {
+    const ls = (typeof l.source === "string") ? l.source : l.source.id;
+    const lt = (typeof l.target === "string") ? l.target : l.target.id;
+    return (ls === s && lt === t) || (ls === t && lt === s);
+  });
+}
+function safeAddNode(n){
+  if(nodeExists(n.id)) return;
+  const strength = layerBaseStrength[n.layer] || 10;
+  const b = initBetaFromMean(n.weight, strength);
+  nodes.push({id:n.id, layer:n.layer, weight:clamp01(n.weight), alpha:b.alpha, beta:b.beta});
+}
+function safeAddLink(l){
+  if(!nodeExists(l.source) || !nodeExists(l.target)) return;
+  if(linkExists(l.source, l.target)) return;
+  links.push({source:l.source, target:l.target, weight:l.weight});
+}
+
+function addThemePack(){
+  const key = document.getElementById("themeSelect").value;
+  const pack = themePacks[key];
+  if(!pack) return;
+
+  pack.nodes.forEach(safeAddNode);
+  pack.links.forEach(safeAddLink);
+
+  // petit bonus: densifier un peu les conflits autour des nouveaux nœuds
+  // (sans faire exploser le graphe)
+  densifyConflictsAroundPack(pack.nodes.map(n => n.id));
+
+  updateGraph(450);
+}
+
+function densifyConflictsAroundPack(addedIds){
+  // Heuristique simple: si on ajoute des nœuds "tourisme/marketing/infra", on crée quelques conflits avec biodiversité / nature / QoL.
+  const conflictTargets = ["Biodiversité","Nature = bien commun","Qualité de vie des résidents","Justice d’accès","Acceptabilité sociale"];
+  addedIds.forEach(a => {
+    conflictTargets.forEach(t => {
+      if(!nodeExists(a) || !nodeExists(t)) return;
+      // évite trop de liens : seulement si nom "tourisme/marketing/infra/capacité" etc.
+      const low = a.toLowerCase();
+      const should = low.includes("marketing") || low.includes("infrastruct") || low.includes("capacité") || low.includes("enneig") || low.includes("expérience");
+      if(!should) return;
+      if(linkExists(a,t)) return;
+      safeAddLink({source:a, target:t, weight:-0.22});
+    });
+  });
+}
+
+function rebuildAutoLinkDropdown(){
+  const sel = document.getElementById("newNodeAutoLinkTo");
+  const current = sel.value;
+  sel.innerHTML = `<option value="">Relier automatiquement à… (optionnel)</option>`;
+  nodes.forEach(n => {
+    const opt = document.createElement("option");
+    opt.value = n.id;
+    opt.textContent = n.id;
+    sel.appendChild(opt);
+  });
+  sel.value = current || "";
+}
+
+function addSingleNode(){
+  const name = document.getElementById("newNodeName").value.trim();
+  const layer = document.getElementById("newNodeLayer").value;
+  const anchor = document.getElementById("newNodeAutoLinkTo").value;
+
+  if(!name) return;
+  if(!nodeExists(name)){
+    const w = (layer==="noyau"?0.85:(layer==="inter"?0.55:0.35));
+    const strength = layerBaseStrength[layer] || 10;
+    const b = initBetaFromMean(w, strength);
+    nodes.push({id:name, layer:layer, weight:clamp01(w), alpha:b.alpha, beta:b.beta});
+  }
+
+  if(anchor && nodeExists(anchor) && !linkExists(name, anchor)){
+    // Heuristique de signe: si on ancre sur "Biodiversité/Nature/Justice" => plutôt cohérence + ; sinon conflit - léger
+    const al = anchor.toLowerCase();
+    const nl = name.toLowerCase();
+    const pro = al.includes("biod") || al.includes("nature") || al.includes("justice") || al.includes("qualité") || al.includes("accept");
+    const anti = nl.includes("péage") || nl.includes("tarif") || nl.includes("parking") || nl.includes("infrastruct") || nl.includes("marketing");
+    const w = (pro && !anti) ? 0.35 : -0.35;
+    links.push({source:name, target:anchor, weight:w});
+  }
+
+  document.getElementById("newNodeName").value = "";
+  updateGraph(450);
+}
+
+/* =========================================================
+   Drag
+   ========================================================= */
+function drag(sim){
+  function dragstarted(e,d){ if(!e.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; }
+  function dragged(e,d){ d.fx=e.x; d.fy=e.y; }
+  function dragended(e,d){ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }
+  return d3.drag().on("start",dragstarted).on("drag",dragged).on("end",dragended);
+}
+
+/* =========================================================
+   Init
+   ========================================================= */
+// Initialise le sélecteur de profil
+const profSel = document.getElementById('agentProfile');
+if(profSel) profSel.value = activeProfile;
+buildTable();
+rebuildAutoLinkDropdown();
+updateCounts();
+updateGraph(0);
+
+</script>
+</body>
+</html>
